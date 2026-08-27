@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from app.config import Settings
-from app.portal.automation import is_scheduled_working_day
+from app.portal.automation import _find_today_status, is_scheduled_working_day
 
 
 def _make_settings(**overrides) -> Settings:
@@ -38,3 +38,31 @@ def test_custom_working_days_are_respected():
     monday = datetime(2024, 1, 8)
     assert is_scheduled_working_day(settings, sunday) is True
     assert is_scheduled_working_day(settings, monday) is False
+
+
+# --------------------------------------------------------------------------- #
+# _find_today_status — pure row-matching logic scraped from UI_TAT_028
+# --------------------------------------------------------------------------- #
+
+DATES = ["Aug 24, 2026", "Aug 25, 2026", "Aug 26, 2026", "Aug 27, 2026", "Aug 28, 2026"]
+WORKING_HOLIDAYS = ["Weekend", "Business Day", "Business Day", "Business Day", "Business Day"]
+LEAVE_REQUESTS = ["", "", "", "Yes", ""]
+
+
+def test_find_today_status_matches_business_day_row():
+    status = _find_today_status(DATES, WORKING_HOLIDAYS, LEAVE_REQUESTS, "Aug 26, 2026")
+    assert status == {"date": "Aug 26, 2026", "working_holiday": "Business Day", "leave_request": ""}
+
+
+def test_find_today_status_matches_leave_request_row():
+    status = _find_today_status(DATES, WORKING_HOLIDAYS, LEAVE_REQUESTS, "Aug 27, 2026")
+    assert status == {"date": "Aug 27, 2026", "working_holiday": "Business Day", "leave_request": "Yes"}
+
+
+def test_find_today_status_matches_weekend_row():
+    status = _find_today_status(DATES, WORKING_HOLIDAYS, LEAVE_REQUESTS, "Aug 24, 2026")
+    assert status["working_holiday"] == "Weekend"
+
+
+def test_find_today_status_returns_none_when_date_not_found():
+    assert _find_today_status(DATES, WORKING_HOLIDAYS, LEAVE_REQUESTS, "Sep 01, 2026") is None

@@ -10,3 +10,4 @@ debug_*.html
 .DS_Store
 .pytest_cache/
 .ruff_cache/
+UI_TAT_028_example.html

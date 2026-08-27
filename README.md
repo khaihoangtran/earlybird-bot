@@ -11,6 +11,9 @@ Service**.
 - `/status` — view current time, working-day status, and next scheduled runs.
 - Automated daily check-in at **08:30** and check-out at **17:30** (Mon–Fri)
   via APScheduler, skipped automatically on weekends.
+- Working-day verification against the portal's own `UI_TAT_028` attendance
+  table (public holidays and approved leave requests are correctly skipped,
+  not just a naive Mon–Fri weekday check).
 - Random 1–10 minute delay injected before each automated action to avoid
   suspiciously exact timestamps.
 - Screenshot proof (`proof.png`) sent to Telegram after every action.
@@ -199,6 +202,22 @@ this portal's login form and its Webix "Punch In/Out" button. Update the
 portal's actual HTML (inspect via browser DevTools). See
 `.github/skills/portal-automation/SKILL.md` for the selector-priority
 strategy used throughout this project.
+
+## How Working-Day Detection Works
+Before clicking the punch button, `perform_action` calls
+`verify_portal_working_day()`, which reads today's row directly from the
+portal's own `UI_TAT_028` attendance table (Working Holiday + Leave Request
+columns) — this correctly skips public holidays and approved leave days, not
+just weekends. A `⏭️ Skipped ...` reply from `/checkin` or `/checkout` is
+expected/normal behavior on those days, not an error.
+
+Because that Webix grid virtualizes rows (only renders enough rows to fill
+the viewport), the automation uses a tall browser viewport
+(`height=2200` in `perform_action`) so the whole current month — including
+today's row — is rendered before scraping. If your portal's calendar table
+ever needs more rows than that (e.g. a very tall/dense layout), increase this
+value. See `.github/skills/portal-automation/SKILL.md` for the column
+selectors and date format this relies on.
 
 ## Security Notes
 - The bot only responds to commands from the chat ID configured in `CHAT_ID`;
