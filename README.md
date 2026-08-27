@@ -159,10 +159,29 @@ If you prefer not to use Docker:
 > requests — this is why `main.py` runs a Flask server (with `/health`) on a
 > background thread alongside the Telegram bot's polling loop.
 
-### Keeping the Service Alive
-Render's free tier may spin down idle web services. Since this bot relies on
-long-running polling + a scheduler, consider Render's paid "always-on" web
-service tier, or an external uptime pinger hitting `/health` periodically.
+### Keeping the Service Alive (Free Tier)
+Render's free tier spins down web services after ~15 minutes of no HTTP
+traffic. Since this bot relies on long-running Telegram polling and an
+APScheduler that must fire at exact times (08:30/17:30), a sleeping service
+will miss scheduled runs. Use a free external uptime monitor to periodically
+ping `/health` and keep the service awake:
+
+**Using UptimeRobot (free, recommended):**
+1. Sign up at [uptimerobot.com](https://uptimerobot.com) (free plan).
+2. Click **+ Add New Monitor**.
+3. Monitor Type: **HTTP(s)**.
+4. URL: `https://<your-render-app>.onrender.com/health`.
+5. Monitoring Interval: **5 minutes** (well under Render's 15-min sleep window).
+6. Save. UptimeRobot will now ping `/health` every 5 minutes, 24/7, keeping
+   the service from spinning down.
+
+Alternatives: [cron-job.org](https://cron-job.org) (free, supports 1-minute
+intervals) or [Better Stack / Freshping](https://betterstack.com) offer
+similar free uptime-ping monitors.
+
+> For guaranteed reliability (no dependency on a third-party pinger), consider
+> Render's paid "always-on" tier, or self-host on an always-free VM (e.g.
+> [Oracle Cloud Always Free](https://www.oracle.com/cloud/free/)).
 
 ## Telegram Commands
 | Command | Description |
