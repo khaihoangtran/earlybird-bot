@@ -92,23 +92,29 @@ async def checkout_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 @authorized_only
 async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    settings = get_settings()
-    now = datetime.now(ZoneInfo(settings.timezone))
-    working_today = "✅ Yes" if is_scheduled_working_day(settings, now) else "❌ No (weekend)"
+    try:
+        settings = get_settings()
+        now = datetime.now(ZoneInfo(settings.timezone))
+        working_today = "✅ Yes" if is_scheduled_working_day(settings, now) else "❌ No (weekend)"
 
-    scheduler: AsyncIOScheduler | None = context.application.bot_data.get("scheduler")
-    jobs_text = "N/A"
-    if scheduler:
-        jobs = scheduler.get_jobs()
-        jobs_text = "\n".join(f"• {job.name}: next run at {job.next_run_time}" for job in jobs) or "No scheduled jobs."
+        scheduler: AsyncIOScheduler | None = context.application.bot_data.get("scheduler")
+        jobs_text = "N/A"
+        if scheduler:
+            jobs = scheduler.get_jobs()
+            jobs_text = (
+                "\n".join(f"• {job.name}: next run at {job.next_run_time}" for job in jobs) or "No scheduled jobs."
+            )
 
-    await update.message.reply_text(
-        f"📊 *Bot Status*\n\n"
-        f"Current time ({settings.timezone}): `{now.strftime('%Y-%m-%d %H:%M:%S')}`\n"
-        f"Working day today: {working_today}\n\n"
-        f"*Scheduled Jobs:*\n{jobs_text}",
-        parse_mode=ParseMode.MARKDOWN,
-    )
+        await update.message.reply_text(
+            f"📊 *Bot Status*\n\n"
+            f"Current time ({settings.timezone}): `{now.strftime('%Y-%m-%d %H:%M:%S')}`\n"
+            f"Working day today: {working_today}\n\n"
+            f"*Scheduled Jobs:*\n{jobs_text}",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+    except Exception as exc:  # noqa: BLE001 - never fail silently on a user command
+        logger.exception("Failed to build /status reply")
+        await update.message.reply_text(f"❌ Failed to retrieve status: {exc}")
 
 
 def register_handlers(application: Application) -> None:
