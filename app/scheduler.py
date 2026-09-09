@@ -9,21 +9,24 @@ from telegram.ext import Application
 
 from app.config import Settings
 from app.logging_config import get_logger
-from app.portal.automation import is_scheduled_working_day, perform_action, random_delay
+from app.portal.automation import perform_action, random_delay
 
 logger = get_logger()
 
 
 async def scheduled_job(action: str, application: Application, settings: Settings) -> None:
-    """Wraps `perform_action` for scheduler use: checks working day, adds jitter, notifies Telegram."""
+    """Wraps `perform_action` for scheduler use: adds jitter and notifies Telegram.
+
+    Runs every day of the week — the portal's own Working Holiday column
+    (checked inside `perform_action` via `verify_portal_working_day`) is the
+    sole authority on whether today is a working day, since some weekends are
+    marked "Business Day" (compensation working days) and must not be
+    skipped purely based on a Mon-Fri weekday heuristic.
+    """
     label = "Check-in" if action == "checkin" else "Check-out"
 
     if not settings.chat_id:
         logger.error("CHAT_ID not configured; skipping scheduled %s", action)
-        return
-
-    if not is_scheduled_working_day(settings):
-        logger.info("Skipping scheduled %s: not a working day", action)
         return
 
     try:
@@ -56,7 +59,7 @@ def setup_scheduler(application: Application, settings: Settings) -> AsyncIOSche
     scheduler.add_job(
         scheduled_job,
         trigger="cron",
-        day_of_week="mon-fri",
+        day_of_week="mon-sun",
         hour=settings.checkin_hour,
         minute=settings.checkin_minute,
         args=["checkin", application, settings],
@@ -67,7 +70,7 @@ def setup_scheduler(application: Application, settings: Settings) -> AsyncIOSche
     scheduler.add_job(
         scheduled_job,
         trigger="cron",
-        day_of_week="mon-fri",
+        day_of_week="mon-sun",
         hour=settings.checkout_hour,
         minute=settings.checkout_minute,
         args=["checkout", application, settings],

@@ -20,12 +20,23 @@ with matching row order across columns:
 | Column | Field | Example values |
 |---|---|---|
 | 0 | Date | `Aug 27, 2026` (format `%b %d, %Y`) |
-| 3 | Working Holiday | `Business Day`, `Weekend` (or a holiday name) |
+| 3 | Working Holiday | `Business Day`, `Weekend`, `Compensation Day` (or a holiday name) |
 | 4 | Leave Request | `Yes` if an approved leave exists, empty otherwise |
 
+Only the **exact** value `"Business Day"` counts as a working day — any other
+value (`"Weekend"`, `"Compensation Day"`, a public holiday name, etc.) is
+non-working, even on a weekday. Note that a Saturday/Sunday can itself be
+marked `"Business Day"` (a compensation working day) — the scheduler
+therefore runs the check-in/out job **every day of the week** and never
+pre-filters by weekday; the portal's Working Holiday column is the sole
+authority on whether to actually launch the punch flow.
+
 `app/portal/automation.py` implements this as two layers:
-- `is_scheduled_working_day()` — cheap, offline Mon-Fri heuristic, used only
-  to skip launching a browser at all on weekends (before Playwright starts).
+- `is_scheduled_working_day()` — cheap, offline Mon-Fri heuristic. It is
+  informational only now (used for the `/status` display and as a fallback
+  when today's row can't be found on the portal table) — it must NOT be used
+  to skip scheduling or gate whether the browser is launched, since it can't
+  see weekend "Business Day" compensation days.
 - `verify_portal_working_day()` — the authoritative check: scrapes today's
   row from the table already loaded in `page` and returns `(False, reason)`
   if Working Holiday != `"Business Day"` or Leave Request == `"Yes"`. Always

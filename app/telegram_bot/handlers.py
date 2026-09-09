@@ -95,7 +95,7 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     try:
         settings = get_settings()
         now = datetime.now(ZoneInfo(settings.timezone))
-        working_today = "✅ Yes" if is_scheduled_working_day(settings, now) else "❌ No (weekend)"
+        working_today = "✅ Yes" if is_scheduled_working_day(settings, now) else "❌ No"
 
         scheduler: AsyncIOScheduler | None = context.application.bot_data.get("scheduler")
         jobs_text = "N/A"
@@ -108,7 +108,9 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await update.message.reply_text(
             f"📊 *Bot Status*\n\n"
             f"Current time ({settings.timezone}): `{now.strftime('%Y-%m-%d %H:%M:%S')}`\n"
-            f"Working day today: {working_today}\n\n"
+            f"Working day today (Mon-Fri heuristic): {working_today}\n"
+            f"_Actual check-in/out is decided by the portal's own attendance table, "
+            f"which also runs on weekends marked as a Business Day._\n\n"
             f"*Scheduled Jobs:*\n{jobs_text}",
             parse_mode=ParseMode.MARKDOWN,
         )

@@ -50,11 +50,13 @@ def is_scheduled_working_day(settings: Settings, reference: datetime | None = No
     Return True if `reference` (default: now, in `settings.timezone`) falls on
     the standard Mon-Fri work week.
 
-    This is a cheap, offline heuristic used to avoid launching a browser at
-    all on weekends (see `setup_scheduler`). It does NOT account for public
-    holidays or approved leave requests — use `verify_portal_working_day` for
-    the authoritative check against the portal's own attendance table before
-    actually punching in/out.
+    This is a cheap, offline heuristic only used for the `/status` display and
+    as a fallback in `verify_portal_working_day` when today's row can't be
+    found on the portal table. It does NOT account for public holidays,
+    approved leave requests, or weekend "Business Day" compensation days —
+    the scheduler no longer uses this to decide whether to run; it runs every
+    day and relies on `verify_portal_working_day` (the portal's own Working
+    Holiday column) as the sole authority on whether to actually punch in/out.
     """
     now = reference or datetime.now(ZoneInfo(settings.timezone))
     return now.weekday() in settings.working_days

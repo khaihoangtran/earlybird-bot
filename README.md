@@ -9,11 +9,11 @@ Service**.
 ## Features
 - `/checkin`, `/checkout` — trigger actions manually.
 - `/status` — view current time, working-day status, and next scheduled runs.
-- Automated daily check-in at **08:30** and check-out at **17:30** (Mon–Fri)
-  via APScheduler, skipped automatically on weekends.
-- Working-day verification against the portal's own `UI_TAT_028` attendance
-  table (public holidays and approved leave requests are correctly skipped,
-  not just a naive Mon–Fri weekday check).
+- Automated daily check-in at **08:30** and check-out at **17:30**, every
+  day of the week — the portal's own `UI_TAT_028` attendance table (not a
+  Mon-Fri weekday check) decides whether today is actually a working day, so
+  weekends marked as a compensation "Business Day" are still handled, while
+  public holidays and approved leave requests are correctly skipped.
 - Random 1–10 minute delay injected before each automated action to avoid
   suspiciously exact timestamps.
 - Screenshot proof (`proof.png`) sent to Telegram after every action.
@@ -204,12 +204,21 @@ portal's actual HTML (inspect via browser DevTools). See
 strategy used throughout this project.
 
 ## How Working-Day Detection Works
-Before clicking the punch button, `perform_action` calls
-`verify_portal_working_day()`, which reads today's row directly from the
-portal's own `UI_TAT_028` attendance table (Working Holiday + Leave Request
-columns) — this correctly skips public holidays and approved leave days, not
-just weekends. A `⏭️ Skipped ...` reply from `/checkin` or `/checkout` is
-expected/normal behavior on those days, not an error.
+The scheduler runs the check-in/check-out job **every day of the week**
+(not just Mon-Fri) at 08:30/17:30. Before clicking the punch button,
+`perform_action` calls `verify_portal_working_day()`, which reads today's row
+directly from the portal's own `UI_TAT_028` attendance table:
+- Working Holiday == `"Business Day"` and Leave Request != `"Yes"` → proceed.
+- Otherwise (Weekend, a public holiday, a "Compensation Day" off, or an
+  approved leave request) → skip.
+
+This means weekends that the portal marks as a compensation "Business Day"
+are still checked in/out correctly, which a plain Mon-Fri weekday check would
+have missed. A `⏭️ Skipped ...` reply from `/checkin` or `/checkout` (or from
+the scheduled job) is expected/normal behavior on non-working days, not an
+error. The old Mon-Fri `is_scheduled_working_day()` heuristic is now only
+used for the informational `/status` display and as a fallback when today's
+row can't be found on the portal table (e.g. wrong month displayed).
 
 Because that Webix grid virtualizes rows (only renders enough rows to fill
 the viewport), the automation uses a tall browser viewport
