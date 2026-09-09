@@ -54,8 +54,13 @@ class Settings:
 
     # Scheduling: Monday=0 ... Sunday=6. Default working week Mon-Fri.
     working_days: frozenset[int] = field(default_factory=lambda: frozenset({0, 1, 2, 3, 4}))
-    checkin_hour: int = 8
-    checkin_minute: int = 30
+    # Check-in fires at a random time in [window_start, deadline) every day;
+    # the portal's own attendance table decides whether it's a working day.
+    checkin_window_start_hour: int = 8
+    checkin_window_start_minute: int = 0
+    checkin_deadline_hour: int = 8
+    checkin_deadline_minute: int = 30
+    checkin_deadline_buffer_seconds: int = 30
     checkout_hour: int = 17
     checkout_minute: int = 30
 
@@ -86,4 +91,10 @@ def get_settings() -> Settings:
         chat_id=os.getenv("CHAT_ID", ""),
         port=int(os.getenv("PORT", "10000")),
         timezone=os.getenv("TIMEZONE", "Asia/Ho_Chi_Minh"),
+        checkin_window_start_hour=int(os.getenv("CHECKIN_WINDOW_START_HOUR", "8")),
+        checkin_window_start_minute=int(os.getenv("CHECKIN_WINDOW_START_MINUTE", "0")),
+        checkin_deadline_hour=int(os.getenv("CHECKIN_DEADLINE_HOUR", "8")),
+        checkin_deadline_minute=int(os.getenv("CHECKIN_DEADLINE_MINUTE", "30")),
+        checkout_hour=int(os.getenv("CHECKOUT_HOUR", "17")),
+        checkout_minute=int(os.getenv("CHECKOUT_MINUTE", "30")),
     )

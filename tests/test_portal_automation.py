@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from app.config import Settings
-from app.portal.automation import _find_today_status, is_scheduled_working_day
+from app.portal.automation import _find_today_status, _seconds_until_deadline, is_scheduled_working_day
 
 
 def _make_settings(**overrides) -> Settings:
@@ -66,3 +66,29 @@ def test_find_today_status_matches_weekend_row():
 
 def test_find_today_status_returns_none_when_date_not_found():
     assert _find_today_status(DATES, WORKING_HOLIDAYS, LEAVE_REQUESTS, "Sep 01, 2026") is None
+
+
+# --------------------------------------------------------------------------- #
+# _seconds_until_deadline — pure time-window math for the check-in deadline
+# --------------------------------------------------------------------------- #
+
+
+def test_seconds_until_deadline_returns_remaining_minus_buffer():
+    settings = _make_settings()
+    now = datetime(2026, 8, 27, 8, 0, 0)
+    remaining = _seconds_until_deadline(settings, deadline_hour=8, deadline_minute=30, buffer_seconds=30, now=now)
+    assert remaining == 30 * 60 - 30
+
+
+def test_seconds_until_deadline_returns_zero_when_deadline_passed():
+    settings = _make_settings()
+    now = datetime(2026, 8, 27, 8, 45, 0)
+    remaining = _seconds_until_deadline(settings, deadline_hour=8, deadline_minute=30, buffer_seconds=30, now=now)
+    assert remaining == 0.0
+
+
+def test_seconds_until_deadline_returns_zero_when_within_buffer():
+    settings = _make_settings()
+    now = datetime(2026, 8, 27, 8, 29, 45)  # 15s before deadline, buffer is 30s
+    remaining = _seconds_until_deadline(settings, deadline_hour=8, deadline_minute=30, buffer_seconds=30, now=now)
+    assert remaining == 0.0

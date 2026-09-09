@@ -50,7 +50,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         "/checkin — Perform check-in now\n"
         "/checkout — Perform check-out now\n"
         "/status — Show scheduler & bot status\n\n"
-        "Automated check-in runs at 08:30, check-out at 17:30 on working days.",
+        "Automated check-in runs randomly between 08:00-08:30, "
+        "check-out at 17:30-17:40, on working days.",
         parse_mode=ParseMode.MARKDOWN,
     )
 

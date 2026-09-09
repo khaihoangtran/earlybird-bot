@@ -137,6 +137,52 @@ async def random_delay(settings: Settings) -> float:
     return delay_seconds
 
 
+def _seconds_until_deadline(
+    settings: Settings,
+    deadline_hour: int,
+    deadline_minute: int,
+    buffer_seconds: int,
+    now: datetime | None = None,
+) -> float:
+    """
+    Pure helper: seconds remaining between `now` (default: now, in
+    `settings.timezone`) and today's `deadline_hour:deadline_minute`, minus a
+    safety buffer. Returns 0 if the deadline (minus buffer) has already
+    passed, so callers never sleep a negative amount.
+    """
+    now = now or datetime.now(ZoneInfo(settings.timezone))
+    deadline = now.replace(hour=deadline_hour, minute=deadline_minute, second=0, microsecond=0)
+    remaining = (deadline - now).total_seconds() - buffer_seconds
+    return max(remaining, 0.0)
+
+
+async def random_delay_before_deadline(
+    settings: Settings,
+    deadline_hour: int,
+    deadline_minute: int,
+    buffer_seconds: int | None = None,
+) -> float:
+    """
+    Sleep a random duration so the action happens at a random point between
+    now and `deadline_hour:deadline_minute` (minus a small safety buffer),
+    rather than a random duration added on top of a fixed start time. Used so
+    scheduled check-in completes randomly *before* the deadline (e.g. 08:30)
+    instead of randomly *after* a fixed start time.
+    """
+    buffer_seconds = settings.checkin_deadline_buffer_seconds if buffer_seconds is None else buffer_seconds
+    max_wait = _seconds_until_deadline(settings, deadline_hour, deadline_minute, buffer_seconds)
+    delay_seconds = random.uniform(0, max_wait) if max_wait > 0 else 0.0
+    logger.info(
+        "Injecting random delay of %.1f seconds (target: before %02d:%02d)",
+        delay_seconds,
+        deadline_hour,
+        deadline_minute,
+    )
+    if delay_seconds > 0:
+        await asyncio.sleep(delay_seconds)
+    return delay_seconds
+
+
 async def _login(page: Page, settings: Settings) -> None:
     """Log into the work portal. Raises on failure so callers can report errors."""
     if not (settings.portal_url and settings.portal_user and settings.portal_pass):

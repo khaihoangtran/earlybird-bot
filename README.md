@@ -9,13 +9,16 @@ Service**.
 ## Features
 - `/checkin`, `/checkout` — trigger actions manually.
 - `/status` — view current time, working-day status, and next scheduled runs.
-- Automated daily check-in at **08:30** and check-out at **17:30**, every
-  day of the week — the portal's own `UI_TAT_028` attendance table (not a
-  Mon-Fri weekday check) decides whether today is actually a working day, so
-  weekends marked as a compensation "Business Day" are still handled, while
-  public holidays and approved leave requests are correctly skipped.
-- Random 1–10 minute delay injected before each automated action to avoid
-  suspiciously exact timestamps.
+- Automated check-in fires every day between **08:00–08:30** (randomized, and
+  always completing before 08:30), automated check-out at **17:30** plus a
+  random 1–10 minute delay after. The portal's own `UI_TAT_028` attendance
+  table (not a Mon-Fri weekday check) decides whether today is actually a
+  working day, so weekends marked as a compensation "Business Day" are still
+  handled, while public holidays and approved leave requests are correctly
+  skipped.
+- Random delay injected before each automated action to avoid suspiciously
+  exact timestamps (check-in: random time before the 08:30 deadline;
+  check-out: random 1–10 minutes after 17:30).
 - Screenshot proof (`proof.png`) sent to Telegram after every action.
 - Only responds to the Telegram user/chat ID configured in `CHAT_ID`.
 - Flask `/health` endpoint on a daemon thread so Render's health checks pass.
@@ -146,6 +149,9 @@ black .
    | `CHAT_ID` | Your Telegram numeric chat ID |
    | `TIMEZONE` | e.g. `Asia/Ho_Chi_Minh` |
    | `PORT` | `10000` (Render also sets this automatically) |
+   | `CHECKIN_WINDOW_START_HOUR` / `_MINUTE` | Optional; default `8` / `0` |
+   | `CHECKIN_DEADLINE_HOUR` / `_MINUTE` | Optional; default `8` / `30` |
+   | `CHECKOUT_HOUR` / `CHECKOUT_MINUTE` | Optional; default `17` / `30` |
 
 5. Set the **Health Check Path** to `/health`.
 6. Deploy. Render will build the Docker image (based on
@@ -205,7 +211,7 @@ strategy used throughout this project.
 
 ## How Working-Day Detection Works
 The scheduler runs the check-in/check-out job **every day of the week**
-(not just Mon-Fri) at 08:30/17:30. Before clicking the punch button,
+(not just Mon-Fri). Before clicking the punch button,
 `perform_action` calls `verify_portal_working_day()`, which reads today's row
 directly from the portal's own `UI_TAT_028` attendance table:
 - Working Holiday == `"Business Day"` and Leave Request != `"Yes"` → proceed.
@@ -219,6 +225,17 @@ the scheduled job) is expected/normal behavior on non-working days, not an
 error. The old Mon-Fri `is_scheduled_working_day()` heuristic is now only
 used for the informational `/status` display and as a fallback when today's
 row can't be found on the portal table (e.g. wrong month displayed).
+
+## How the Randomized Check-in Time Works
+The check-in job fires every day at `CHECKIN_WINDOW_START_HOUR:MINUTE`
+(default 08:00), then `random_delay_before_deadline()` sleeps a random amount
+so the actual portal punch happens at a random point before
+`CHECKIN_DEADLINE_HOUR:MINUTE` (default 08:30, minus a small safety buffer) —
+e.g. it might click at 08:07 one day and 08:26 the next, but never after
+08:30. This replaces the old behavior of a fixed 08:30 start plus a random
+delay added *after* it. Check-out is unchanged: fires at a fixed time
+(`CHECKOUT_HOUR:MINUTE`, default 17:30) plus a random 1–10 minute delay
+*after* that.
 
 Because that Webix grid virtualizes rows (only renders enough rows to fill
 the viewport), the automation uses a tall browser viewport

@@ -9,7 +9,7 @@ from telegram.ext import Application
 
 from app.config import Settings
 from app.logging_config import get_logger
-from app.portal.automation import perform_action, random_delay
+from app.portal.automation import perform_action, random_delay, random_delay_before_deadline
 
 logger = get_logger()
 
@@ -22,6 +22,12 @@ async def scheduled_job(action: str, application: Application, settings: Setting
     sole authority on whether today is a working day, since some weekends are
     marked "Business Day" (compensation working days) and must not be
     skipped purely based on a Mon-Fri weekday heuristic.
+
+    Check-in fires at `checkin_window_start_*` and is delayed a random amount
+    so the actual punch happens at a random time *before* the
+    `checkin_deadline_*` cutoff (e.g. sometime between 08:00 and 08:30).
+    Check-out fires at a fixed time and is delayed a random 1-10 minutes
+    *after* that, same as before.
     """
     label = "Check-in" if action == "checkin" else "Check-out"
 
@@ -34,7 +40,12 @@ async def scheduled_job(action: str, application: Application, settings: Setting
             chat_id=settings.chat_id,
             text=f"⏳ Scheduled {label.lower()} triggered. Waiting random delay before proceeding...",
         )
-        await random_delay(settings)
+        if action == "checkin":
+            await random_delay_before_deadline(
+                settings, settings.checkin_deadline_hour, settings.checkin_deadline_minute
+            )
+        else:
+            await random_delay(settings)
 
         success, message = await perform_action(action, settings)
         await application.bot.send_message(chat_id=settings.chat_id, text=message)
@@ -60,8 +71,8 @@ def setup_scheduler(application: Application, settings: Settings) -> AsyncIOSche
         scheduled_job,
         trigger="cron",
         day_of_week="mon-sun",
-        hour=settings.checkin_hour,
-        minute=settings.checkin_minute,
+        hour=settings.checkin_window_start_hour,
+        minute=settings.checkin_window_start_minute,
         args=["checkin", application, settings],
         name="Automated Check-in",
         id="checkin_job",
